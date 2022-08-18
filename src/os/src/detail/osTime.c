@@ -614,36 +614,24 @@ int64_t taosTimeTruncate(int64_t timeStamp, const SInterval* pInterval, int32_t 
 
     if (pInterval->slidingUnit == 'y') {
       tm.tm_mon = 0;
-      tm.tm_year = (int)(tm.tm_year / pInterval->sliding * pInterval->sliding);
+      tm.tm_year -= (int)(tm.tm_year%pInterval->sliding);
     } else {
       int mon = tm.tm_year * 12 + tm.tm_mon;
-      mon = (int)(mon / pInterval->sliding * pInterval->sliding);
+      mon -= (int)(mon % pInterval->sliding);
       tm.tm_year = mon / 12;
       tm.tm_mon = mon % 12;
     }
 
     start = (int64_t)(mktime(&tm) * TSDB_TICK_PER_SECOND(precision));
   } else {
-    int64_t delta = timeStamp - pInterval->interval;
-    int32_t factor = (delta >= 0) ? 1 : -1;
-
-    start = (delta / pInterval->sliding + factor) * pInterval->sliding;
-
-    if (pInterval->intervalUnit == 'd' || pInterval->intervalUnit == 'w') {
-     /*
-      * here we revised the start time of day according to the local time zone,
-      * but in case of DST, the start time of one day need to be dynamically decided.
-      */
-      // todo refactor to extract function that is available for Linux/Windows/Mac platform
   #if defined(WINDOWS) && _MSC_VER >= 1900
-      // see https://docs.microsoft.com/en-us/cpp/c-runtime-library/daylight-dstbias-timezone-and-tzname?view=vs-2019
-      int64_t timezone = _timezone;
-      int32_t daylight = _daylight;
-      char**  tzname = _tzname;
+    // see https://docs.microsoft.com/en-us/cpp/c-runtime-library/daylight-dstbias-timezone-and-tzname?view=vs-2019
+    int64_t timezone = _timezone;
   #endif
+    int64_t tz_offset = -1 * timezone * TSDB_TICK_PER_SECOND(precision);
 
-      start += (int64_t)(timezone * TSDB_TICK_PER_SECOND(precision));
-    }
+    start = timeStamp - pInterval->interval + pInterval->sliding;
+    start -= (start+tz_offset)%pInterval->sliding;
 
     int64_t end = 0;
 
