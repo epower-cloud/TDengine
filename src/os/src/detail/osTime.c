@@ -565,6 +565,18 @@ int64_t taosTimeSub(int64_t t, int64_t duration, char unit, int32_t precision) {
   return (int64_t)(mktime(&tm) * TSDB_TICK_PER_SECOND(precision));
 }
 
+int64_t taosTimeTzOffset(int64_t intervalUnit, int32_t precision) {
+  int64_t tz_offset = 0;
+  if (intervalUnit == 'd' || intervalUnit == 'w') {
+    #if defined(WINDOWS) && _MSC_VER >= 1900
+    // see https://docs.microsoft.com/en-us/cpp/c-runtime-library/daylight-dstbias-timezone-and-tzname?view=vs-2019
+    int64_t timezone = _timezone;
+    #endif
+    tz_offset = -1 * timezone * TSDB_TICK_PER_SECOND(precision);
+  }
+  return tz_offset;
+}
+
 int32_t taosTimeCountInterval(int64_t skey, int64_t ekey, int64_t interval, char unit, int32_t precision) {
   if (ekey < skey) {
     int64_t tmp = ekey;
@@ -572,13 +584,7 @@ int32_t taosTimeCountInterval(int64_t skey, int64_t ekey, int64_t interval, char
     skey = tmp;
   }
 
-#ifdef _MSC_VER
-#if _MSC_VER >= 1900
-  int64_t timezone = _timezone;
-#endif
-#endif
-
-  int64_t tz_offset = -1 * timezone * TSDB_TICK_PER_SECOND(precision);
+  int64_t tz_offset = taosTimeTzOffset(unit, precision);
 
   if (unit != 'n' && unit != 'y') {
     return (int32_t)((ekey+tz_offset)/interval - (skey+tz_offset)/interval) + 1;
@@ -632,13 +638,9 @@ int64_t taosTimeTruncate(int64_t t, const SInterval* pInterval, int32_t precisio
 
     start = (int64_t)(mktime(&tm) * TSDB_TICK_PER_SECOND(precision));
   } else {
-  #if defined(WINDOWS) && _MSC_VER >= 1900
-    // see https://docs.microsoft.com/en-us/cpp/c-runtime-library/daylight-dstbias-timezone-and-tzname?view=vs-2019
-    int64_t timezone = _timezone;
-  #endif
-    int64_t tz_offset = -1 * timezone * TSDB_TICK_PER_SECOND(precision);
-
     start = t - pInterval->interval + pInterval->sliding;
+
+    int64_t tz_offset = taosTimeTzOffset(pInterval->intervalUnit, precision);
     start -= (start+tz_offset)%pInterval->sliding;
 
     int64_t end = 0;
