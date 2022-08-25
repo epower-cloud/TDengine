@@ -68,8 +68,8 @@ Query OK, 2 rows in database (0.005995s)
 在 TAOS shell, 查找 groupId 为 2 的所有智能电表的记录条数，电流的最大值。
 
 ```
-taos> SELECT count(*), max(current) FROM meters where groupId = 2;
-     cunt(*)  |    max(current)  |
+taos> SELECT count(*) , max(current) FROM meters where groupId = 2;
+     count(*)  |    max(current)  |
 ==================================
             5 |             13.4 |
 Query OK, 1 row(s) in set (0.002136s)
