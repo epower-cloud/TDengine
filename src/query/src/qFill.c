@@ -497,9 +497,13 @@ int64_t getNumOfResultsAfterFillGap(SFillInfo* pFillInfo, TSKEY ekey, int32_t ma
   int64_t numOfRes = -1;
   if (numOfRows > 0) {  // still fill gap within current data block, not generating data after the result set.
     TSKEY lastKey = tsList[pFillInfo->numOfRows - 1];
+    TSKEY currentKey = pFillInfo->currentKey;
+    bool well_aligned = ((lastKey-currentKey)%pFillInfo->interval.sliding == 0);
+    assert(well_aligned && "Sliding windows not well-aligned."
+            "Most likely caused by mismatched timezones between client and/or dnodes");
     numOfRes = taosTimeCountInterval(
       lastKey,
-      pFillInfo->currentKey,
+      currentKey,
       pFillInfo->interval.sliding,
       pFillInfo->interval.slidingUnit,
       pFillInfo->precision);
